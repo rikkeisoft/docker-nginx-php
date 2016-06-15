@@ -6,6 +6,7 @@ if [ -f "/var/run/php-fpm.pid" ]; then
   if [ ! -z ${pid} ]; then
     echo "PHP-FPM is running. Killing pid ${pid}"
     kill -QUIT ${pid}
+    rm /var/run/php-fpm.pid
   fi
 fi
 
@@ -14,6 +15,7 @@ if [ -f "/var/run/nginx.pid" ]; then
   if [ ! -z ${pid} ]; then
     echo "Nginx is running. Killing pid ${pid}"
     kill -QUIT ${pid}
+    rm /var/run/nginx.pid
   fi
 fi
 
