@@ -2,7 +2,7 @@ FROM alpine:3.4
 
 MAINTAINER Huy Nguyen Quang <huynq@rikkeisoft.com>
 
-# Install Nginx 1.11.1
+# NGINX ENV
 ENV NGINX_USER=nginx
 ENV NGINX_VERSION 1.11.1
 ENV NGINX_GPG_KEYS B0F4253373F8F6F510D42178520A9993A1C052F8
@@ -50,9 +50,42 @@ ENV NGINX_CONFIG "\
     --with-ipv6 \
     "
 
+# PHP-FPM ENV
+ENV PHP_INI_DIR /usr/local/etc/php
+ENV PHP_EXTRA_CONFIGURE_ARGS --enable-fpm --with-fpm-user=nginx --with-fpm-group=nginx
+ENV PHP_GPG_KEYS 1A4E8B7277C42E53DBA9C7B9BCAA30EA9C0D5763
+ENV PHP_VERSION 7.0.7
+ENV PHP_FILENAME php-7.0.7.tar.xz
+ENV PHP_SHA256 9cc64a7459242c79c10e79d74feaf5bae3541f604966ceb600c3d2e8f5fe4794
+# persistent / runtime deps
+ENV PHPIZE_DEPS \
+        autoconf \
+        file \
+        g++ \
+        gcc \
+        libc-dev \
+        make \
+        pkgconf \
+        re2c
+
+RUN apk add --no-cache --virtual .persistent-deps \
+    ca-certificates \
+    curl
+
+# Copy S6 directories
+COPY rootfs /
+
+# Install S6 overlay <https://github.com/just-containers/s6-overlay/>
+RUN curl -kfSL https://github.com/just-containers/s6-overlay/releases/download/v1.18.1.0/s6-overlay-amd64.tar.gz -o /tmp/s6-overlay.tar.gz \
+ && tar xvfz /tmp/s6-overlay.tar.gz -C / \
+ && rm -f /tmp/s6-overlay.tar.gz
+
+# Install Nginx 1.11
 RUN \
     addgroup -S nginx \
     && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
+    && apk --no-cache --update --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ add shadow \
+    && usermod -u 1000 nginx \
     && apk add --no-cache --virtual .build-deps \
         gcc \
         libc-dev \
@@ -127,36 +160,13 @@ RUN \
     && ln -sf /dev/stdout /var/log/nginx/access.log \
     && ln -sf /dev/stderr /var/log/nginx/error.log
 
+# Copy Nginx configs
 COPY conf/nginx.conf /etc/nginx/nginx.conf
 COPY conf/default.conf /etc/nginx/conf.d/default.conf
 
 # Install PHP-FPM 7
-# persistent / runtime deps
-ENV PHPIZE_DEPS \
-        autoconf \
-        file \
-        g++ \
-        gcc \
-        libc-dev \
-        make \
-        pkgconf \
-        re2c
-RUN apk add --no-cache --virtual .persistent-deps \
-        ca-certificates \
-        curl
-
-ENV PHP_INI_DIR /usr/local/etc/php
-RUN mkdir -p $PHP_INI_DIR/conf.d
-
-ENV PHP_EXTRA_CONFIGURE_ARGS --enable-fpm --with-fpm-user=nginx --with-fpm-group=nginx
-
-ENV PHP_GPG_KEYS 1A4E8B7277C42E53DBA9C7B9BCAA30EA9C0D5763
-
-ENV PHP_VERSION 7.0.7
-ENV PHP_FILENAME php-7.0.7.tar.xz
-ENV PHP_SHA256 9cc64a7459242c79c10e79d74feaf5bae3541f604966ceb600c3d2e8f5fe4794
-
 RUN set -xe \
+    && mkdir -p $PHP_INI_DIR/conf.d \
     && apk add --no-cache --virtual .build-deps \
         $PHPIZE_DEPS \
         curl-dev \
@@ -206,9 +216,9 @@ RUN set -xe \
     && apk add --no-cache --virtual .php-rundeps $runDeps \
     && apk del .build-deps
 
-RUN mkdir -p /var/log/php-fpm/
-
+# Configure PHP-FPM
 RUN set -ex \
+    && mkdir -p /var/log/php-fpm/ \
     && cd /usr/local/etc \
     && if [ -d php-fpm.d ]; then \
         # for some reason, upstream's php-fpm.conf.default has "include=NONE/etc/php-fpm.d/*.conf"
@@ -244,21 +254,24 @@ RUN set -ex \
         echo 'listen = [::]:9000'; \
     } | tee php-fpm.d/zz-docker.conf
 
-RUN apk --no-cache --update --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ add shadow \
-    && usermod -u 1000 nginx
-
+# Copy php extension ultilities
 COPY bin/docker-php-ext-* /usr/local/bin/
 
+# Install php extensions
 RUN docker-php-ext-install pdo pdo_mysql mcrypt iconv mbstring zip
 
+# Workdir
 WORKDIR /var/www/html
 
+# PHP Default Script
 COPY html/index.php /var/www/html/
 
+# Install Composer
 RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/bin/composer
 
-EXPOSE 80 443 9000
+# Export 80 for http & 443 for https
+EXPOSE 80 443
 
 COPY docker-entrypoint.sh /
 
