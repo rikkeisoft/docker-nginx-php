@@ -3,8 +3,8 @@ FROM alpine:3.4
 MAINTAINER Huy Nguyen Quang <huynq@rikkeisoft.com>
 
 # NGINX ENV
-ENV NGINX_USER=nginx
-ENV NGINX_VERSION 1.11.1
+ENV NGINX_USER nginx
+ENV NGINX_VERSION 1.11.9
 ENV NGINX_GPG_KEYS B0F4253373F8F6F510D42178520A9993A1C052F8
 ENV NGINX_CONFIG "\
     --prefix=/etc/nginx \
@@ -42,50 +42,61 @@ ENV NGINX_CONFIG "\
     --with-threads \
     --with-stream \
     --with-stream_ssl_module \
+    --with-stream_ssl_preread_module \
+    --with-stream_realip_module \
+    --with-stream_geoip_module=dynamic \
     --with-http_slice_module \
     --with-mail \
     --with-mail_ssl_module \
+    --with-compat \
     --with-file-aio \
     --with-http_v2_module \
-    --with-ipv6 \
     "
 
 # PHP-FPM ENV
 ENV PHP_INI_DIR /usr/local/etc/php
 ENV PHP_EXTRA_CONFIGURE_ARGS --enable-fpm --with-fpm-user=nginx --with-fpm-group=nginx
-ENV PHP_GPG_KEYS 1A4E8B7277C42E53DBA9C7B9BCAA30EA9C0D5763
-ENV PHP_VERSION 7.0.7
-ENV PHP_FILENAME php-7.0.7.tar.xz
-ENV PHP_SHA256 9cc64a7459242c79c10e79d74feaf5bae3541f604966ceb600c3d2e8f5fe4794
-# persistent / runtime deps
-ENV PHPIZE_DEPS \
-        autoconf \
-        file \
-        g++ \
-        gcc \
-        libc-dev \
-        make \
-        pkgconf \
-        re2c
+ENV PHP_GPG_KEYS A917B1ECDA84AEC2B568FED6F50ABC807BD5DCD0 528995BFEDFBA7191D46839EF9BA0ADA31CBD89E
+ENV PHP_VERSION 7.1.2
+ENV PHP_FILENAME php-$PHP_VERSION.tar.xz
+ENV PHP_SHA256 d815a0c39fd57bab1434a77ff0610fb507c22f790c66cd6f26e27030c4b3e971
+ENV PHPIZE_DEPS "\
+    autoconf \
+    file \
+    g++ \
+    gcc \
+    libc-dev \
+    make \
+    pkgconf \
+    re2c \
+    "
 
-RUN apk add --no-cache --virtual .persistent-deps \
-    ca-certificates \
-    curl
+RUN echo "http://dl-2.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && echo "http://dl-3.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && echo "http://dl-4.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && echo "http://dl-5.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && apk add --no-cache  --update --virtual .persistent-deps \
+        ca-certificates \
+        curl \
+        tar \
+        xz
 
 # Copy S6 directories
 COPY rootfs /
 
 # Install S6 overlay <https://github.com/just-containers/s6-overlay/>
-RUN curl -kfSL https://github.com/just-containers/s6-overlay/releases/download/v1.18.1.0/s6-overlay-amd64.tar.gz -o /tmp/s6-overlay.tar.gz \
+RUN curl -kfSL https://github.com/just-containers/s6-overlay/releases/download/v1.18.1.5/s6-overlay-amd64.tar.gz -o /tmp/s6-overlay.tar.gz \
  && tar xvfz /tmp/s6-overlay.tar.gz -C / \
  && rm -f /tmp/s6-overlay.tar.gz
 
-# Install Nginx 1.11
+COPY conf/sysctl.conf /etc/sysctl.conf
+
+# Install Nginx 1.11.9
 RUN \
-    addgroup -S nginx \
-    && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
-    && apk --no-cache --update --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ add shadow \
-    && usermod -u 1000 nginx \
+    addgroup -S $NGINX_USER \
+    && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G $NGINX_USER $NGINX_USER \
+    && apk --no-cache --update add shadow \
+    && usermod -u 1000 $NGINX_USER \
     && apk add --no-cache --virtual .build-deps \
         gcc \
         libc-dev \
@@ -111,14 +122,15 @@ RUN \
     && rm nginx.tar.gz \
     && cd /usr/src/nginx-$NGINX_VERSION \
     && ./configure $NGINX_CONFIG --with-debug \
-    && make \
+    && make -j$(getconf _NPROCESSORS_ONLN) \
     && mv objs/nginx objs/nginx-debug \
     && mv objs/ngx_http_xslt_filter_module.so objs/ngx_http_xslt_filter_module-debug.so \
     && mv objs/ngx_http_image_filter_module.so objs/ngx_http_image_filter_module-debug.so \
     && mv objs/ngx_http_geoip_module.so objs/ngx_http_geoip_module-debug.so \
     && mv objs/ngx_http_perl_module.so objs/ngx_http_perl_module-debug.so \
+    && mv objs/ngx_stream_geoip_module.so objs/ngx_stream_geoip_module-debug.so \
     && ./configure $NGINX_CONFIG \
-    && make \
+    && make -j$(getconf _NPROCESSORS_ONLN) \
     && make install \
     && rm -rf /etc/nginx/html/ \
     && mkdir /etc/nginx/conf.d/ \
@@ -130,20 +142,33 @@ RUN \
     && install -m755 objs/ngx_http_image_filter_module-debug.so /usr/lib/nginx/modules/ngx_http_image_filter_module-debug.so \
     && install -m755 objs/ngx_http_geoip_module-debug.so /usr/lib/nginx/modules/ngx_http_geoip_module-debug.so \
     && install -m755 objs/ngx_http_perl_module-debug.so /usr/lib/nginx/modules/ngx_http_perl_module-debug.so \
+    && install -m755 objs/ngx_stream_geoip_module-debug.so /usr/lib/nginx/modules/ngx_stream_geoip_module-debug.so \
     && ln -s ../../usr/lib/nginx/modules /etc/nginx/modules \
     && strip /usr/sbin/nginx* \
     && strip /usr/lib/nginx/modules/*.so \
+    && rm -rf /usr/src/nginx-$NGINX_VERSION \
+    \
+    # Bring in gettext so we can get `envsubst`, then throw
+    # the rest away. To do this, we need to install `gettext`
+    # then move `envsubst` out of the way so `gettext` can
+    # be deleted completely, then move `envsubst` back.
+    && apk add --no-cache --virtual .gettext gettext \
+    && mv /usr/bin/envsubst /tmp/ \
+    \
     && runDeps="$( \
-        scanelf --needed --nobanner /usr/sbin/nginx /usr/lib/nginx/modules/*.so \
+        scanelf --needed --nobanner /usr/sbin/nginx /usr/lib/nginx/modules/*.so /tmp/envsubst \
             | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
             | sort -u \
             | xargs -r apk info --installed \
             | sort -u \
     )" \
-    && apk add --virtual .nginx-rundeps $runDeps \
+    && apk add --no-cache --virtual .nginx-rundeps $runDeps \
     && apk del .build-deps \
-    && rm -rf /usr/src/nginx-$NGINX_VERSION \
+    && apk del .gettext \
+    && mv /tmp/envsubst /usr/local/bin/ \
+    \
     && apk add --no-cache \
+        procps \
         gettext \
         bash \
         gawk \
@@ -164,7 +189,25 @@ RUN \
 COPY conf/nginx.conf /etc/nginx/nginx.conf
 COPY conf/default.conf /etc/nginx/conf.d/default.conf
 
-# Install PHP-FPM 7
+# Install PHP-FPM 7.1.2
+RUN set -xe \
+    && apk add --no-cache --virtual .fetch-deps \
+        gnupg \
+    && mkdir -p /usr/src \
+    && cd /usr/src \
+    && curl -fSL "https://secure.php.net/get/$PHP_FILENAME/from/this/mirror" -o php.tar.xz \
+    && echo "$PHP_SHA256 *php.tar.xz" | sha256sum -c - \
+    && curl -fSL "https://secure.php.net/get/$PHP_FILENAME.asc/from/this/mirror" -o php.tar.xz.asc \
+    && export GNUPGHOME="$(mktemp -d)" \
+    && for key in $PHP_GPG_KEYS; do \
+        gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
+    done \
+    && gpg --batch --verify php.tar.xz.asc php.tar.xz \
+    && rm -r "$GNUPGHOME" \
+    && apk del .fetch-deps
+
+COPY bin/docker-php-source /usr/local/bin/
+
 RUN set -xe \
     && mkdir -p $PHP_INI_DIR/conf.d \
     && apk add --no-cache --virtual .build-deps \
@@ -175,37 +218,33 @@ RUN set -xe \
         libxml2-dev \
         openssl-dev \
         sqlite-dev \
-    && curl -fSL "http://php.net/get/$PHP_FILENAME/from/this/mirror" -o "$PHP_FILENAME" \
-    && echo "$PHP_SHA256 *$PHP_FILENAME" | sha256sum -c - \
-    && curl -fSL "http://php.net/get/$PHP_FILENAME.asc/from/this/mirror" -o "$PHP_FILENAME.asc" \
-    && export GNUPGHOME="$(mktemp -d)" \
-    && for key in $PHP_GPG_KEYS; do \
-        gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
-    done \
-    && gpg --batch --verify "$PHP_FILENAME.asc" "$PHP_FILENAME" \
-    && rm -r "$GNUPGHOME" "$PHP_FILENAME.asc" \
-    && mkdir -p /usr/src \
-    && tar -Jxf "$PHP_FILENAME" -C /usr/src \
-    && mv "/usr/src/php-$PHP_VERSION" /usr/src/php \
-    && rm "$PHP_FILENAME" \
+    && chmod +x /usr/local/bin/docker-php-source \
+    && docker-php-source extract \
     && cd /usr/src/php \
     && ./configure \
         --with-config-file-path="$PHP_INI_DIR" \
         --with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
-        $PHP_EXTRA_CONFIGURE_ARGS \
+        \
         --disable-cgi \
-# --enable-mysqlnd is included here because it's harder to compile after the fact than extensions are (since it's a plugin for several extensions, not an extension in itself)
-        --enable-mysqlnd \
+        \
+# --enable-ftp is included here because ftp_ssl_connect() needs ftp to be compiled statically (see https://github.com/docker-library/php/issues/236)
+        --enable-ftp \
 # --enable-mbstring is included here because otherwise there's no way to get pecl to use it properly (see https://github.com/docker-library/php/issues/195)
         --enable-mbstring \
+# --enable-mysqlnd is included here because it's harder to compile after the fact than extensions are (since it's a plugin for several extensions, not an extension in itself)
+        --enable-mysqlnd \
         --with-curl \
         --with-libedit \
         --with-openssl \
         --with-zlib \
+        \
+        $PHP_EXTRA_CONFIGURE_ARGS \
     && make -j"$(getconf _NPROCESSORS_ONLN)" \
     && make install \
     && { find /usr/local/bin /usr/local/sbin -type f -perm +0111 -exec strip --strip-all '{}' + || true; } \
     && make clean \
+    && docker-php-source delete \
+    \
     && runDeps="$( \
         scanelf --needed --nobanner --recursive /usr/local \
             | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
@@ -214,6 +253,7 @@ RUN set -xe \
             | sort -u \
     )" \
     && apk add --no-cache --virtual .php-rundeps $runDeps \
+    \
     && apk del .build-deps
 
 # Configure PHP-FPM
@@ -258,7 +298,8 @@ RUN set -ex \
 COPY bin/docker-php-ext-* /usr/local/bin/
 
 # Install php extensions
-RUN docker-php-ext-install pdo pdo_mysql mcrypt iconv mbstring zip
+RUN chmod +x /usr/local/bin/docker-php-* \
+    && docker-php-ext-install pdo pdo_mysql mcrypt iconv mbstring zip intl
 
 # Workdir
 WORKDIR /var/www/html
@@ -274,5 +315,7 @@ RUN curl -sS https://getcomposer.org/installer | php && \
 EXPOSE 80 443
 
 COPY docker-entrypoint.sh /
+
+RUN chmod +x /docker-entrypoint.sh
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
