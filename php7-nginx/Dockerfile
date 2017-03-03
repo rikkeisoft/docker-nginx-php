@@ -299,7 +299,7 @@ COPY bin/docker-php-ext-* /usr/local/bin/
 
 # Install php extensions
 RUN chmod +x /usr/local/bin/docker-php-* \
-    && docker-php-ext-install pdo pdo_mysql mcrypt iconv mbstring zip intl
+    && docker-php-ext-install pdo pdo_mysql mcrypt iconv mbstring zip
 
 # Workdir
 WORKDIR /var/www/html
