@@ -4,7 +4,7 @@ MAINTAINER Huy Nguyen Quang <huynq@rikkeisoft.com>
 
 # NGINX ENV
 ENV NGINX_USER nginx
-ENV NGINX_VERSION 1.11.9
+ENV NGINX_VERSION 1.11.10
 ENV NGINX_GPG_KEYS B0F4253373F8F6F510D42178520A9993A1C052F8
 ENV NGINX_CONFIG "\
     --prefix=/etc/nginx \
@@ -57,9 +57,9 @@ ENV NGINX_CONFIG "\
 ENV PHP_INI_DIR /usr/local/etc/php
 ENV PHP_EXTRA_CONFIGURE_ARGS --enable-fpm --with-fpm-user=nginx --with-fpm-group=nginx
 ENV PHP_GPG_KEYS A917B1ECDA84AEC2B568FED6F50ABC807BD5DCD0 528995BFEDFBA7191D46839EF9BA0ADA31CBD89E
-ENV PHP_VERSION 7.1.2
+ENV PHP_VERSION 7.1.3
 ENV PHP_FILENAME php-$PHP_VERSION.tar.xz
-ENV PHP_SHA256 d815a0c39fd57bab1434a77ff0610fb507c22f790c66cd6f26e27030c4b3e971
+ENV PHP_SHA256 e4887c2634778e37fd962fbdf5c4a7d32cd708482fe07b448804625570cb0bb0
 ENV PHPIZE_DEPS "\
     autoconf \
     file \
@@ -81,17 +81,9 @@ RUN echo "http://dl-2.alpinelinux.org/alpine/edge/community" >> /etc/apk/reposit
         tar \
         xz
 
-# Copy S6 directories
-COPY rootfs /
-
-# Install S6 overlay <https://github.com/just-containers/s6-overlay/>
-RUN curl -kfSL https://github.com/just-containers/s6-overlay/releases/download/v1.18.1.5/s6-overlay-amd64.tar.gz -o /tmp/s6-overlay.tar.gz \
- && tar xvfz /tmp/s6-overlay.tar.gz -C / \
- && rm -f /tmp/s6-overlay.tar.gz
-
 COPY conf/sysctl.conf /etc/sysctl.conf
 
-# Install Nginx 1.11.9
+# Install Nginx 1.11.10
 RUN \
     addgroup -S $NGINX_USER \
     && adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G $NGINX_USER $NGINX_USER \
@@ -189,7 +181,7 @@ RUN \
 COPY conf/nginx.conf /etc/nginx/nginx.conf
 COPY conf/default.conf /etc/nginx/conf.d/default.conf
 
-# Install PHP-FPM 7.1.2
+# Install PHP-FPM 7.1.3
 RUN set -xe \
     && apk add --no-cache --virtual .fetch-deps \
         gnupg \
@@ -219,6 +211,7 @@ RUN set -xe \
         openssl-dev \
         sqlite-dev \
     && chmod +x /usr/local/bin/docker-php-source \
+    && sync \
     && docker-php-source extract \
     && cd /usr/src/php \
     && ./configure \
@@ -299,6 +292,7 @@ COPY bin/docker-php-ext-* /usr/local/bin/
 
 # Install php extensions
 RUN chmod +x /usr/local/bin/docker-php-* \
+    && sync \
     && docker-php-ext-install pdo pdo_mysql mcrypt iconv mbstring zip
 
 # Workdir

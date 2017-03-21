@@ -1,0 +1,18 @@
+sudo: required
+services:
+- docker
+env:
+  global:
+  - DOCKER_IMAGE=rikkeisoft/php7-nginx
+script:
+- docker build -t $DOCKER_IMAGE:latest php7-nginx
+- docker run -d --privileged --name php7-nginx -p 0.0.0.0:8080:80 $DOCKER_IMAGE
+- curl -I http://127.0.0.1:8080
+
+notifications:
+  slack:
+    on_pull_requests: false
+    on_success: always
+    on_failure: always
+    rooms:
+      secure: Q5zbSSr7BYJs2KYZM7gFCmS+SBGgQUFsA/TNCbrSyqu/tvYA3y+ctIoNT0cY/JraBJw3sqbkbBI5IwyDxc9vTm70HmxDVOAPrvzdTaPKcq9ac0gMLN8MEq/Swqpb2agatM6tjUJnF8ZFpBLoQblMKT0ntFnLF7kfVn6+EnLy7xU//E227PXggru7p4am7Bng5AmvHdOvDGHWMO/Ztkq4DqJ5yq2relMcuIBbE33q/HpOrAcQ0oght2cJf2ADvSWkE+sMjukjdZ1dwtYmJR0klG5MVZ6KLphii8VUV1hgIAIFJ9b/Geym7bAykBDnXwKJ1QHjSpsbLp2wUJ4Nw9j3BPyJg6NkPbxU15G7l5WDyDW1KwI+uQJtY5sMQbWiP8etOrYa/ms1jrN+8m2+AN3gAARyVt+3dvghTQAp3w31fvEBMutVubN4b3Yrb2oxwYdjVflHq1voM0y7WGmAle0zoZvKYgWEkMosfuwcMfpPJa7eoKQrLFHpbvTgRmAGa92qhHAUlfKIt+wMtnTDnbaAjh2/I5rmQsgW2/+6C6QV+aXyMqL+F+/Tf13xyNbaUdLr8OWPgbPBf8+7ZxYpl/X8DC+Vm/JKeJS1i69fQ9PGjcXtq02ax/85izH439QIfJTjg0kT4BR69bphwpSq0lQtI5vd3tJKinvyR3etcIUOmsk=
