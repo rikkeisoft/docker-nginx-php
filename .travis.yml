@@ -4,12 +4,22 @@ services:
 env:
   global:
   - DOCKER_IMAGE=rikkeisoft/php7-nginx
+  - secure: jIJ5BjLsBNF13P8H0HGW18Rt45E7sqxY3tYrdyB/wnOPFpu5nfuusDb8Xl9kL2DtVuuJuoO36x87GP4eVN4FQLQ0/s88Bnqw9u8qITi4jf3f8kjSkWcPl0m2aIu7BXVpGhd8MProHceuVahtYH87UDN2MUUUzeKUk3vH0FarmrQIlLnC8GLko8zlgqsGyORwEeQwbqw/lv0tlGMq0xkIXjLKGtJdKroXOwwS3hJUW+ctULye4CEXUmJCO2vRaBclkSLks4tI6oO4n3jR9Ss0ZM1iateNAeWzs9A8s8tAgqm1XNfDLMwfOKuC/bwRlQ37I99Iws5KmLwmjQnY86KRsx+Ma3OzYxN2Z/lRdO+cP8QvfMswbvVBr0QVbneRFdBM6N398Hpzb2dA6FzMDhWFrxK/HKNsvD+yyg7cTKPAhKNSJtSWxtNO0+OGQ53HVj6l69CvrF3i5b9RiJmTork018y+tgWJLU8e52mv/OpAXf4GRSRZnntWKiKEXakgLM9tu41uJDOBBJSBCjyx6nN7KFhtD000G3a7NBCl3IZETqokVdQYYKbftXSS+s3Op2rO6iMYPhCwMag7cMy2Bm5KnjAILLMcOiyz9p3kcth5z2rPvEFw6Ane42HYPeQKCP6Rl4ldDoV2Sn7vbI2ibdQgb2WqfPvK8n2BZY+R8ylrvBk=
+  - secure: NDjNdNlZopSbQ3iKyxrzQ9003stnBkgNE/t4MIXOTBeb5oPiiPtwSRf8JkMBBVbPF3HAhU2gfPwzhqUEw5e2wDbEPAUiXIBoAiJC+JEGlgFlDhWr8qwn69F4TQ2TEm71XPF2n6YMjDVReehPR1L98spki7RkjkzanIvkgzGh9yQdmszhjL94rbZVd6V5cpP5EPkYAz1Yz9/xMAx8YE0DUivTNPhFOuC+92skElTrwJXfFPZQwb8gNlaLfgxG7+lpjJHMd2TkJRGkqrKZ5lU7tJKkrk/F5Er1sCFXgCetkgThb0bsNXzvU2kOPjueaBoaLhRXMpDNPB5CN4ht1EYmDtIZCgzNjLQdtEVYYs7ALPjb6ESpl8jppdV8kvDAW2uT8TblA+YxyxEArXhz39v6nWq3Fzn/nd+tM+G1wCpUUwgNr+ZzMdVDLQvZ0ArnnBbq2vmMgGqfhYIVj/l4mBC3aLv/wKrIm0gO4IuxgMLEkHXm+aUfujx30CYG23TSYESNdRAN1q4o5kGSRx0sbYEMGX4D0YHEWwdszWMGl0VFZ943N2ahN3NwdK4agGmo84gObNp048VS0Ef0XkKBemya2bOqN/Vj9+9nTP9tc5ZEZ9zh+pfn+nNVmUTRmf0uQHwG9YEI5BTH+zyvUd2s4rxz53XrqSAKX+rlEwgo8g5oMYk=
 script:
 - docker build -t $DOCKER_IMAGE:latest php7-nginx
 - docker run -d --privileged --name php7-nginx -p 0.0.0.0:8080:80 $DOCKER_IMAGE
 - sleep 1m
 - curl -I http://127.0.0.1:8080
-
+after_success:
+- docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+- if [[ ! -z "$TRAVIS_TAG" ]]; then
+  docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:$TRAVIS_TAG;
+  docker push
+  fi
+- if [[ "$TRAVIS_PULL_REQUEST" == "false" && "$TRAVIS_BRANCH" == "master" ]]; then
+  docker push $DOCKER_IMAGE:latest;
+  fi
 notifications:
   slack:
     on_pull_requests: false
