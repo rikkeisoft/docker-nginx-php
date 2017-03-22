@@ -13,17 +13,14 @@ script:
 - curl -I http://127.0.0.1:8080
 after_success:
 - docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
-- if [[ ! -z "$TRAVIS_TAG" ]]; then
-  docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:$TRAVIS_TAG;
-  docker push
-  fi
+- if [[ ! -z "$TRAVIS_TAG" ]]; then docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:$TRAVIS_TAG;
+  docker push fi
 - if [[ "$TRAVIS_PULL_REQUEST" == "false" && "$TRAVIS_BRANCH" == "master" ]]; then
-  docker push $DOCKER_IMAGE:latest;
-  fi
+  docker push $DOCKER_IMAGE:latest; fi
 notifications:
   slack:
+    rooms:
+      secure: netWec1VGNx5To7GCCcaEQWbY8yaAtsZv8XfyMQ81nbG9naaUYOYhzJCAD6kSjsbm4A1XWte/4hb+kCfODB4arjGGhzcgerxTs692sdJDCRJAq4qw8S7ozNaudQM9uGUaMDtLd9dPicSoLuDWBvibNbksjjdeRvJ1ciCBAltonw6OpQE7Ck2DeFdR7t+ObNGw8emFwUqhs78dJiYOyfaSmK9+shQsOE/fgMSKD+TXG6QOoaytoigdeaI2xfmrg5YLMO2X+HX3SC3rRgupCdNWhu5RP7cqkCcR4gI2ZdYlHosBzSqOSurYFuy8wJQLkODewB6xvX5RoH5EOTaK+gIJejm9utXWxuMR0Rfymjdv3HUq6dynhVN5mGad86NyrlBLVytWj4UudWtDHU0xtk0KEEvfyoJm3B2Vfkbi3B6C2wTv5oj3BG1IPdY1ZkqgVXXUTglVvPoUxX7KOt0+DEktAi4PBvLM8nb955iycc4YPzwRAE3qAkSeXLqvLumQA6GbwbSsZuddL/1kptNQcFQbhFJNJt/S3E+wtSVeR5rjG43RG/F6HI4e21F5USaHLPa6ca76CPYm9m/Ju00/gt9VvR4omkBj0/+vQISNc7Stf7N7BBxKe+oiFfw7EOUS3MmnTZszaPwzmso05XSg7gF3JPOEdLdNP7cVjEI9eKiTlM=
     on_pull_requests: false
     on_success: always
     on_failure: always
-    rooms:
-      secure: Q5zbSSr7BYJs2KYZM7gFCmS+SBGgQUFsA/TNCbrSyqu/tvYA3y+ctIoNT0cY/JraBJw3sqbkbBI5IwyDxc9vTm70HmxDVOAPrvzdTaPKcq9ac0gMLN8MEq/Swqpb2agatM6tjUJnF8ZFpBLoQblMKT0ntFnLF7kfVn6+EnLy7xU//E227PXggru7p4am7Bng5AmvHdOvDGHWMO/Ztkq4DqJ5yq2relMcuIBbE33q/HpOrAcQ0oght2cJf2ADvSWkE+sMjukjdZ1dwtYmJR0klG5MVZ6KLphii8VUV1hgIAIFJ9b/Geym7bAykBDnXwKJ1QHjSpsbLp2wUJ4Nw9j3BPyJg6NkPbxU15G7l5WDyDW1KwI+uQJtY5sMQbWiP8etOrYa/ms1jrN+8m2+AN3gAARyVt+3dvghTQAp3w31fvEBMutVubN4b3Yrb2oxwYdjVflHq1voM0y7WGmAle0zoZvKYgWEkMosfuwcMfpPJa7eoKQrLFHpbvTgRmAGa92qhHAUlfKIt+wMtnTDnbaAjh2/I5rmQsgW2/+6C6QV+aXyMqL+F+/Tf13xyNbaUdLr8OWPgbPBf8+7ZxYpl/X8DC+Vm/JKeJS1i69fQ9PGjcXtq02ax/85izH439QIfJTjg0kT4BR69bphwpSq0lQtI5vd3tJKinvyR3etcIUOmsk=
