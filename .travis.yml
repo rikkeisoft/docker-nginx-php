@@ -7,6 +7,7 @@ env:
 script:
 - docker build -t $DOCKER_IMAGE:latest php7-nginx
 - docker run -d --privileged --name php7-nginx -p 0.0.0.0:8080:80 $DOCKER_IMAGE
+- sleep 1m
 - curl -I http://127.0.0.1:8080
 
 notifications:
