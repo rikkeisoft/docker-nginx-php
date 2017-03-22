@@ -13,10 +13,8 @@ script:
 - curl -I http://127.0.0.1:8080
 after_success:
 - docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
-- if [[ ! -z "$TRAVIS_TAG" ]]; then docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:$TRAVIS_TAG;
-  docker push fi
-- if [[ "$TRAVIS_PULL_REQUEST" == "false" && "$TRAVIS_BRANCH" == "master" ]]; then
-  docker push $DOCKER_IMAGE:latest; fi
+- if [[ ! -z "$TRAVIS_TAG" ]]; then docker tag $DOCKER_IMAGE:latest $DOCKER_IMAGE:$TRAVIS_TAG; docker push; fi
+- if [[ "$TRAVIS_PULL_REQUEST" == "false" && "$TRAVIS_BRANCH" == "master" ]]; then docker push $DOCKER_IMAGE:latest; fi
 notifications:
   slack:
     rooms:
